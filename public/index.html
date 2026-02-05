@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Shared Draw</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #fff;
+    }
+    canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      cursor: crosshair;
+    }
+    .palette {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      gap: 8px;
+      background: #fff;
+      padding: 8px;
+      border: 1px solid #ddd;
+      z-index: 10;
+    }
+    .swatch {
+      width: 20px;
+      height: 20px;
+      border: 1px solid #000;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="palette" id="palette"></div>
+<canvas id="c"></canvas>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+
+  const colours = [
+    "#000000",
+    "#ff0000",
+    "#0000ff",
+    "#00aa00",
+    "#ffff00",
+    "#ffffff" // white = eraser
+  ];
+
+  let colour = colours[0];
+  let drawing = false;
+  let last = {};
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  function draw(seg) {
+    ctx.strokeStyle = seg.color;
+    ctx.lineWidth = seg.w;
+    ctx.beginPath();
+    ctx.moveTo(seg.x1, seg.y1);
+    ctx.lineTo(seg.x2, seg.y2);
+    ctx.stroke();
+  }
+
+  canvas.addEventListener("mousedown", e => {
+    drawing = true;
+    last = { x: e.clientX, y: e.clientY };
+  });
+
+  window.addEventListener("mouseup", () => {
+    drawing = false;
+  });
+
+  canvas.addEventListener("mousemove", e => {
+    if (!drawing) return;
+
+    const seg = {
+      x1: last.x,
+      y1: last.y,
+      x2: e.clientX,
+      y2: e.clientY,
+      color: colour,
+      w: colour === "#ffffff" ? 6 : 1
+    };
+
+    draw(seg);
+    socket.emit("segment", seg);
+    last = { x: e.clientX, y: e.clientY };
+  });
+
+  socket.on("segment", draw);
+  socket.on("history", segments => segments.forEach(draw));
+
+  const palette = document.getElementById("palette");
+  colours.forEach(c => {
+    const b = document.createElement("div");
+    b.className = "swatch";
+    b.style.background = c === "#ffffff" ? "#eee" : c;
+    b.onclick = () => colour = c;
+    palette.appendChild(b);
+  });
+</script>
+
+</body>
+</html>

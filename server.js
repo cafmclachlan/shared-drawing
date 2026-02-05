@@ -1,0 +1,45 @@
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import Database from "better-sqlite3";
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+app.use(express.static("public"));
+
+const db = new Database("draw.db");
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS segments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    x1 REAL, y1 REAL,
+    x2 REAL, y2 REAL,
+    color TEXT,
+    w REAL,
+    t INTEGER
+  );
+`);
+
+const insertSeg = db.prepare(`
+  INSERT INTO segments (x1,y1,x2,y2,color,w,t)
+  VALUES (@x1,@y1,@x2,@y2,@color,@w,@t)
+`);
+
+const getAll = db.prepare(`
+  SELECT x1,y1,x2,y2,color,w,t FROM segments ORDER BY id ASC
+`);
+
+io.on("connection", (socket) => {
+  socket.emit("history", getAll.all());
+
+  socket.on("segment", (seg) => {
+    insertSeg.run({ ...seg, t: Date.now() });
+    socket.broadcast.emit("segment", seg);
+  });
+});
+
+server.listen(3000, () => {
+  console.log("Server running at http://localhost:3000");
+});

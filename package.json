@@ -1,0 +1,10 @@
+{
+  "type": "module",
+  "name": "shared-drawing",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "better-sqlite3": "^11.0.0"
+  }
+}
