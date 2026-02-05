@@ -165,7 +165,7 @@
     // ignore if no whole-pixel movement
     if (p.x === last.x && p.y === last.y) return;
 
-    const w = currentColor === "#ffffff" ? 6 : 2;
+    const w = currentColor === "#000000" ? 6 : 2;
 
     // draw locally
     drawPixelLine(last.x, last.y, p.x, p.y, currentColor, w);
