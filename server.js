@@ -9,7 +9,7 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-const path = require("path");
+import path from "path";
 
 const DATA_DIR = process.env.DATA_DIR || (process.env.RENDER ? "/data" : ".");
 const DB_PATH = path.join(DATA_DIR, "draw.db");
