@@ -18,13 +18,10 @@
     }
     .palette {
       position: fixed;
-      top: 16px;
-      left: 16px;
+      top: 8px;
+      left: 8px;
       display: flex;
       gap: 8px;
-      background: #fff;
-      padding: 8px;
-      border: 1px solid #ddd;
       z-index: 10;
     }
     .swatch {
@@ -49,7 +46,7 @@
   ctx.imageSmoothingEnabled = false;
 
   // Palette (last one is white = erase)
-  const COLORS = ["#000000", "#ff0000", "#0000ff", "#00aa00", "#ffffff"];
+  const COLORS = ["#000000", "red", "magenta", "navy", "#ffffff"];
   let currentColor = COLORS[0];
 
   // ---------- UI (palette) ----------
@@ -132,7 +129,7 @@
   const socket = io();
 
   function renderSeg(seg) {
-    const w = seg.w ?? (seg.color === "#ffffff" ? 6 : 1);
+    const w = seg.w ?? (seg.color === "#ffffff" ? 2);
     drawPixelLine(seg.x1, seg.y1, seg.x2, seg.y2, seg.color, w);
   }
 
@@ -143,7 +140,7 @@
   socket.on("segment", renderSeg);
 
   function emitSeg(x1, y1, x2, y2, color) {
-    const w = color === "#ffffff" ? 6 : 1;
+    const w = color === "#ffffff" ? 2;
     socket.emit("segment", { x1, y1, x2, y2, color, w });
   }
 
@@ -156,7 +153,7 @@
     last = getPos(e);
 
     // Draw + send a dot immediately
-    const w = currentColor === "#ffffff" ? 6 : 1;
+    const w = currentColor === "#ffffff" ? 2;
     drawPixelLine(last.x, last.y, last.x, last.y, currentColor, w);
     emitSeg(last.x, last.y, last.x, last.y, currentColor);
   }
@@ -168,7 +165,7 @@
     // ignore if no whole-pixel movement
     if (p.x === last.x && p.y === last.y) return;
 
-    const w = currentColor === "#ffffff" ? 6 : 1;
+    const w = currentColor === "#ffffff" ? 2;
 
     // draw locally
     drawPixelLine(last.x, last.y, p.x, p.y, currentColor, w);
