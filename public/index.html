@@ -1,195 +1,202 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Shared Drawing</title>
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        overflow: hidden;
-        background: #fff;
-      }
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Shared Draw</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #fff;
+    }
+    canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      cursor: crosshair;
+    }
+    .palette {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      gap: 8px;
+      background: #fff;
+      padding: 8px;
+      border: 1px solid #ddd;
+      z-index: 10;
+    }
+    .swatch {
+      width: 20px;
+      height: 20px;
+      border: 1px solid #000;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
 
-      canvas {
-        display: block;
-        width: 100vw;
-        height: 100vh;
-        cursor: crosshair;
-        /* these help keep things crisp in some browsers */
-        image-rendering: pixelated;
-        image-rendering: crisp-edges;
-      }
+<div class="palette" id="palette"></div>
+<canvas id="c"></canvas>
 
-      .palette {
-        position: fixed;
-        top: 18px;
-        left: 18px;
-        z-index: 10;
-        display: flex;
-        gap: 10px;
-        padding: 10px;
-        background: rgba(255,255,255,0.9);
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        backdrop-filter: blur(6px);
-      }
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d", { alpha: true });
 
-      .swatch {
-        width: 18px;
-        height: 18px;
-        border: 1px solid #111;
-        cursor: pointer;
-        border-radius: 2px;
-      }
+  // Turn off smoothing for crunchy pixel look
+  ctx.imageSmoothingEnabled = false;
 
-      .swatch.active {
-        outline: 2px solid #000;
-        outline-offset: 2px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="palette" id="palette"></div>
-    <canvas id="c"></canvas>
+  // Palette (last one is white = erase)
+  const COLORS = ["#000000", "#ff0000", "#0000ff", "#00aa00", "#ffffff"];
+  let currentColor = COLORS[0];
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-      const canvas = document.getElementById("c");
-      const ctx = canvas.getContext("2d", { alpha: true });
-
-      // Turn off smoothing (key to that crunchy bitmap look)
-      ctx.imageSmoothingEnabled = false;
-
-      // 5 colours total (last one is white = "erase")
-      const COLORS = ["#000000", "#ff0000", "#0000ff", "#00aa00", "#ffffff"];
-      let currentColor = COLORS[0];
-
-      // ---------- UI (palette) ----------
-      const palette = document.getElementById("palette");
-      function renderPalette() {
-        palette.innerHTML = "";
-        COLORS.forEach((col) => {
-          const b = document.createElement("button");
-          b.type = "button";
-          b.className = "swatch" + (col === currentColor ? " active" : "");
-          b.style.background = col;
-          b.setAttribute("aria-label", `Color ${col}`);
-          b.addEventListener("click", () => {
-            currentColor = col;
-            renderPalette();
-          });
-          palette.appendChild(b);
-        });
-      }
-      renderPalette();
-
-      // ---------- Retina-safe sizing + crisp pixels ----------
-      function resizeCanvas() {
-        const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-
-        // visible size
-        canvas.style.width = window.innerWidth + "px";
-        canvas.style.height = window.innerHeight + "px";
-
-        // actual pixel buffer size
-        canvas.width = Math.floor(window.innerWidth * dpr);
-        canvas.height = Math.floor(window.innerHeight * dpr);
-
-        // draw in CSS pixels but aligned to real pixels
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.imageSmoothingEnabled = false;
-      }
-      window.addEventListener("resize", resizeCanvas);
-      resizeCanvas();
-
-      // Snap pointer to whole pixels (very important for crispness)
-      function getPos(e) {
-        const rect = canvas.getBoundingClientRect();
-        return {
-          x: Math.floor(e.clientX - rect.left),
-          y: Math.floor(e.clientY - rect.top),
-        };
-      }
-
-      // ---------- Pixel-line drawing (Bresenham) ----------
-      // This is what makes it look like your screenshot: no anti-aliased stroke.
-      function drawPixelLine(x0, y0, x1, y1, color) {
-        ctx.fillStyle = color;
-
-        let dx = Math.abs(x1 - x0);
-        let dy = Math.abs(y1 - y0);
-        let sx = x0 < x1 ? 1 : -1;
-        let sy = y0 < y1 ? 1 : -1;
-        let err = dx - dy;
-
-        while (true) {
-          ctx.fillRect(x0, y0, 1, 1); // 1 "pixel" in CSS units
-          if (x0 === x1 && y0 === y1) break;
-
-          const e2 = 2 * err;
-          if (e2 > -dy) { err -= dy; x0 += sx; }
-          if (e2 <  dx) { err += dx; y0 += sy; }
-        }
-      }
-
-      // ---------- Socket ----------
-      // IMPORTANT:
-      // Your server needs to listen/emit the same event name ("draw") with the same payload.
-      // If your existing server uses a different event name, change "draw" in BOTH places.
-      const socket = io();
-
-      // Receive other people's lines
-      socket.on("draw", (seg) => {
-        drawPixelLine(seg.x0, seg.y0, seg.x1, seg.y1, seg.color);
+  // ---------- UI (palette) ----------
+  const palette = document.getElementById("palette");
+  function renderPalette() {
+    palette.innerHTML = "";
+    COLORS.forEach((col) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "swatch" + (col === currentColor ? " active" : "");
+      b.style.background = col === "#ffffff" ? "#eee" : col;
+      b.setAttribute("aria-label", `Color ${col}`);
+      b.addEventListener("click", () => {
+        currentColor = col;
+        renderPalette();
       });
+      palette.appendChild(b);
+    });
+  }
+  renderPalette();
 
-      // ---------- Drawing input ----------
-      let drawing = false;
-      let last = null;
+  // ---------- Retina-safe sizing + crisp pixels ----------
+  function resizeCanvas() {
+    const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
 
-      function startDraw(e) {
-        drawing = true;
-        last = getPos(e);
-        // draw a dot instantly
-        drawPixelLine(last.x, last.y, last.x, last.y, currentColor);
-        socket.emit("draw", { x0: last.x, y0: last.y, x1: last.x, y1: last.y, color: currentColor });
+    canvas.style.width = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
+
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+
+    // Draw in CSS pixels, aligned to device pixels
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+  }
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+
+  // Snap pointer to whole pixels
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: Math.floor(e.clientX - rect.left),
+      y: Math.floor(e.clientY - rect.top),
+    };
+  }
+
+  // ---------- Pixel-line drawing (Bresenham) ----------
+  function drawPixelLine(x0, y0, x1, y1, color, w = 1) {
+    // w is thickness in "pixels" (CSS px units)
+    ctx.fillStyle = color;
+
+    let dx = Math.abs(x1 - x0);
+    let dy = Math.abs(y1 - y0);
+    let sx = x0 < x1 ? 1 : -1;
+    let sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+
+    while (true) {
+      // draw a square "pixel" (or thicker)
+      if (w <= 1) {
+        ctx.fillRect(x0, y0, 1, 1);
+      } else {
+        const r = Math.floor(w / 2);
+        ctx.fillRect(x0 - r, y0 - r, w, w);
       }
 
-      function moveDraw(e) {
-        if (!drawing) return;
-        const p = getPos(e);
+      if (x0 === x1 && y0 === y1) break;
 
-        // if mouse didn't move a whole pixel, ignore
-        if (p.x === last.x && p.y === last.y) return;
+      const e2 = 2 * err;
+      if (e2 > -dy) { err -= dy; x0 += sx; }
+      if (e2 <  dx) { err += dx; y0 += sy; }
+    }
+  }
 
-        // draw locally
-        drawPixelLine(last.x, last.y, p.x, p.y, currentColor);
+  // ---------- Socket (MATCHES YOUR SERVER) ----------
+  // Server expects/uses:
+  //   emit: "history" (array of {x1,y1,x2,y2,color,w,...})
+  //   recv+send: "segment" (single segment object)
+  const socket = io();
 
-        // broadcast
-        socket.emit("draw", { x0: last.x, y0: last.y, x1: p.x, y1: p.y, color: currentColor });
+  function renderSeg(seg) {
+    const w = seg.w ?? (seg.color === "#ffffff" ? 6 : 1);
+    drawPixelLine(seg.x1, seg.y1, seg.x2, seg.y2, seg.color, w);
+  }
 
-        last = p;
-      }
+  socket.on("history", (segments) => {
+    segments.forEach(renderSeg);
+  });
 
-      function endDraw() {
-        drawing = false;
-        last = null;
-      }
+  socket.on("segment", renderSeg);
 
-      // Use pointer events (works for mouse + touch/pen)
-      canvas.addEventListener("pointerdown", (e) => {
-        canvas.setPointerCapture(e.pointerId);
-        startDraw(e);
-      });
-      canvas.addEventListener("pointermove", moveDraw);
-      window.addEventListener("pointerup", endDraw);
-      window.addEventListener("pointercancel", endDraw);
+  function emitSeg(x1, y1, x2, y2, color) {
+    const w = color === "#ffffff" ? 6 : 1;
+    socket.emit("segment", { x1, y1, x2, y2, color, w });
+  }
 
-      // Prevent page scrolling on touch
-      canvas.style.touchAction = "none";
-    </script>
-  </body>
+  // ---------- Drawing input ----------
+  let drawing = false;
+  let last = null;
+
+  function startDraw(e) {
+    drawing = true;
+    last = getPos(e);
+
+    // Draw + send a dot immediately
+    const w = currentColor === "#ffffff" ? 6 : 1;
+    drawPixelLine(last.x, last.y, last.x, last.y, currentColor, w);
+    emitSeg(last.x, last.y, last.x, last.y, currentColor);
+  }
+
+  function moveDraw(e) {
+    if (!drawing || !last) return;
+    const p = getPos(e);
+
+    // ignore if no whole-pixel movement
+    if (p.x === last.x && p.y === last.y) return;
+
+    const w = currentColor === "#ffffff" ? 6 : 1;
+
+    // draw locally
+    drawPixelLine(last.x, last.y, p.x, p.y, currentColor, w);
+
+    // broadcast to server
+    emitSeg(last.x, last.y, p.x, p.y, currentColor);
+
+    last = p;
+  }
+
+  function endDraw() {
+    drawing = false;
+    last = null;
+  }
+
+  // Pointer events for mouse + touch/pen
+  canvas.addEventListener("pointerdown", (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    startDraw(e);
+  });
+  canvas.addEventListener("pointermove", moveDraw);
+  window.addEventListener("pointerup", endDraw);
+  window.addEventListener("pointercancel", endDraw);
+
+  // Prevent page scrolling on touch
+  canvas.style.touchAction = "none";
+</script>
+
+
+</body>
 </html>
