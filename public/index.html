@@ -8,7 +8,6 @@
       margin: 0;
       height: 100%;
       overflow: hidden;
-      background: #fff;
     }
     canvas {
       width: 100vw;
@@ -28,7 +27,7 @@
     .swatch {
       width: 20px;
       height: 20px;
-      border: 1px solid #000;
+      border: 1px solid grey;
       cursor: pointer;
     }
   </style>
@@ -47,7 +46,7 @@
   ctx.imageSmoothingEnabled = false;
 
   // Palette (last one is white = erase)
-  const COLORS = ["#000000", "red", "navy", "magenta", "#ffffff"];
+  const COLORS = ["#ffffff", "red", "navy", "magenta", "#000000"];
   let currentColor = COLORS[0];
 
   // ---------- UI (palette) ----------
@@ -58,7 +57,7 @@
       const b = document.createElement("button");
       b.type = "button";
       b.className = "swatch" + (col === currentColor ? " active" : "");
-      b.style.background = col === "#ffffff" ? "#eee" : col;
+      b.style.background = col === "#000000" ? "#eee" : col;
       b.setAttribute("aria-label", `Color ${col}`);
       b.addEventListener("click", () => {
         currentColor = col;
@@ -130,7 +129,7 @@
   const socket = io();
 
   function renderSeg(seg) {
-    const w = seg.w ?? (seg.color === "#ffffff" ? 6 : 2);
+    const w = seg.w ?? (seg.color === "#000000" ? 6 : 3);
     drawPixelLine(seg.x1, seg.y1, seg.x2, seg.y2, seg.color, w);
   }
 
@@ -141,7 +140,7 @@
   socket.on("segment", renderSeg);
 
   function emitSeg(x1, y1, x2, y2, color) {
-    const w = color === "#ffffff" ? 6 : 2;
+    const w = color === "#000000" ? 6 : 3;
     socket.emit("segment", { x1, y1, x2, y2, color, w });
   }
 
@@ -154,7 +153,7 @@
     last = getPos(e);
 
     // Draw + send a dot immediately
-    const w = currentColor === "#ffffff" ? 6 : 2;
+    const w = currentColor === "#000000" ? 6 : 3;
     drawPixelLine(last.x, last.y, last.x, last.y, currentColor, w);
     emitSeg(last.x, last.y, last.x, last.y, currentColor);
   }
