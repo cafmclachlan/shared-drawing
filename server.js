@@ -9,7 +9,13 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-const db = new Database("draw.db");
+const path = require("path");
+
+const DATA_DIR = process.env.DATA_DIR || (process.env.RENDER ? "/data" : ".");
+const DB_PATH = path.join(DATA_DIR, "draw.db");
+
+const db = new Database(DB_PATH);
+
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS segments (
