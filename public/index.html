@@ -38,65 +38,64 @@
 <canvas id="c"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
+
+<script src="/socket.io/socket.io.js"></script>
 <script>
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d", { alpha: true });
 
-  // Turn off smoothing for crunchy pixel look
   ctx.imageSmoothingEnabled = false;
 
-  // Palette (last one is white = erase)
-  const COLORS = ["#ffffff", "red", "blue", "magenta", "#000000"];
+  // ---- SETTINGS ----
+  const ERASER_COLOR = "#000000"; // black erases (background is black)
+  const DRAW_W = 2;
+  const ERASE_W = 6;
+
+  // white stays a drawing colour
+  const COLORS = ["#ffffff", "red", "navy", "magenta", "#000000"];
   let currentColor = COLORS[0];
 
-  // ---------- UI (palette) ----------
+  // ---------- Palette ----------
   const palette = document.getElementById("palette");
   function renderPalette() {
     palette.innerHTML = "";
-    COLORS.forEach((col) => {
+    COLORS.forEach(col => {
       const b = document.createElement("button");
-      b.type = "button";
-      b.className = "swatch" + (col === currentColor ? " active" : "");
+      b.className = "swatch";
       b.style.background = col;
-      b.setAttribute("aria-label", `Color ${col}`);
-      b.addEventListener("click", () => {
+      b.onclick = () => {
         currentColor = col;
         renderPalette();
-      });
+      };
       palette.appendChild(b);
     });
   }
   renderPalette();
 
-  // ---------- Retina-safe sizing + crisp pixels ----------
+  // ---------- Canvas resize ----------
   function resizeCanvas() {
     const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+    const rect = canvas.getBoundingClientRect();
 
-    canvas.style.width = window.innerWidth + "px";
-    canvas.style.height = window.innerHeight + "px";
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
 
-    canvas.width = Math.floor(window.innerWidth * dpr);
-    canvas.height = Math.floor(window.innerHeight * dpr);
-
-    // Draw in CSS pixels, aligned to device pixels
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
   }
   window.addEventListener("resize", resizeCanvas);
   resizeCanvas();
 
-  // Snap pointer to whole pixels
   function getPos(e) {
     const rect = canvas.getBoundingClientRect();
     return {
       x: Math.floor(e.clientX - rect.left),
-      y: Math.floor(e.clientY - rect.top),
+      y: Math.floor(e.clientY - rect.top)
     };
   }
 
-  // ---------- Pixel-line drawing (Bresenham) ----------
-  function drawPixelLine(x0, y0, x1, y1, color, w = 1) {
-    // w is thickness in "pixels" (CSS px units)
+  // ---------- Pixel line ----------
+  function drawPixelLine(x0, y0, x1, y1, color, w) {
     ctx.fillStyle = color;
 
     let dx = Math.abs(x1 - x0);
@@ -106,71 +105,71 @@
     let err = dx - dy;
 
     while (true) {
-      // draw a square "pixel" (or thicker)
-      if (w <= 1) {
-        ctx.fillRect(x0, y0, 1, 1);
-      } else {
-        const r = Math.floor(w / 2);
-        ctx.fillRect(x0 - r, y0 - r, w, w);
-      }
+      const r = Math.floor(w / 2);
+      ctx.fillRect(x0 - r, y0 - r, w, w);
 
       if (x0 === x1 && y0 === y1) break;
-
       const e2 = 2 * err;
       if (e2 > -dy) { err -= dy; x0 += sx; }
       if (e2 <  dx) { err += dx; y0 += sy; }
     }
   }
 
-  // ---------- Socket (MATCHES YOUR SERVER) ----------
-  // Server expects/uses:
-  //   emit: "history" (array of {x1,y1,x2,y2,color,w,...})
-  //   recv+send: "segment" (single segment object)
+  // ---------- Socket ----------
   const socket = io();
 
-function renderSeg(seg) {
-  const w = seg.w ?? (seg.color === "#000000" ? 6 : 2);
+  function renderSeg(seg) {
+    const rect = canvas.getBoundingClientRect();
+    const w = seg.w ?? (seg.color === ERASER_COLOR ? ERASE_W : DRAW_W);
 
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+    const x1 = seg.nx1 != null ? Math.round(seg.nx1 * rect.width) : seg.x1;
+    const y1 = seg.ny1 != null ? Math.round(seg.ny1 * rect.height) : seg.y1;
+    const x2 = seg.nx2 != null ? Math.round(seg.nx2 * rect.width) : seg.x2;
+    const y2 = seg.ny2 != null ? Math.round(seg.ny2 * rect.height) : seg.y2;
 
-  const x1 = (seg.nx1 != null) ? Math.round(seg.nx1 * vw) : seg.x1;
-  const y1 = (seg.ny1 != null) ? Math.round(seg.ny1 * vh) : seg.y1;
-  const x2 = (seg.nx2 != null) ? Math.round(seg.nx2 * vw) : seg.x2;
-  const y2 = (seg.ny2 != null) ? Math.round(seg.ny2 * vh) : seg.y2;
+    drawPixelLine(x1, y1, x2, y2, seg.color, w);
+  }
 
-  drawPixelLine(x1, y1, x2, y2, seg.color, w);
-}
+  socket.on("history", segs => segs.forEach(renderSeg));
+  socket.on("segment", renderSeg);
 
-  // ---------- Drawing input ----------
+  function emitSeg(x1, y1, x2, y2, color) {
+    const rect = canvas.getBoundingClientRect();
+    const w = color === ERASER_COLOR ? ERASE_W : DRAW_W;
+
+    socket.emit("segment", {
+      x1, y1, x2, y2,
+      nx1: x1 / rect.width,
+      ny1: y1 / rect.height,
+      nx2: x2 / rect.width,
+      ny2: y2 / rect.height,
+      color,
+      w
+    });
+  }
+
+  // ---------- Drawing ----------
   let drawing = false;
   let last = null;
 
   function startDraw(e) {
     drawing = true;
     last = getPos(e);
-
-    // Draw + send a dot immediately
-    const w = currentColor === "#000000" ? 6 : 2;
-    drawPixelLine(last.x, last.y, last.x, last.y, currentColor, w);
     emitSeg(last.x, last.y, last.x, last.y, currentColor);
+    drawPixelLine(last.x, last.y, last.x, last.y, currentColor,
+      currentColor === ERASER_COLOR ? ERASE_W : DRAW_W
+    );
   }
 
   function moveDraw(e) {
     if (!drawing || !last) return;
     const p = getPos(e);
-
-    // ignore if no whole-pixel movement
     if (p.x === last.x && p.y === last.y) return;
 
-    const w = currentColor === "#000000" ? 6 : 2;
-
-    // draw locally
-    drawPixelLine(last.x, last.y, p.x, p.y, currentColor, w);
-
-    // broadcast to server
     emitSeg(last.x, last.y, p.x, p.y, currentColor);
-
+    drawPixelLine(last.x, last.y, p.x, p.y, currentColor,
+      currentColor === ERASER_COLOR ? ERASE_W : DRAW_W
+    );
     last = p;
   }
 
@@ -179,17 +178,13 @@ function renderSeg(seg) {
     last = null;
   }
 
-  // Pointer events for mouse + touch/pen
-  canvas.addEventListener("pointerdown", (e) => {
+  canvas.addEventListener("pointerdown", e => {
     canvas.setPointerCapture(e.pointerId);
     startDraw(e);
   });
   canvas.addEventListener("pointermove", moveDraw);
   window.addEventListener("pointerup", endDraw);
   window.addEventListener("pointercancel", endDraw);
-
-  // Prevent page scrolling on touch
-  canvas.style.touchAction = "none";
 </script>
 
 

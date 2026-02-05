@@ -12,7 +12,12 @@ app.use(express.static("public"));
 
 const DATA_DIR = process.env.DATA_DIR || (process.env.RENDER ? "/data" : ".");
 const DB_PATH = path.join(DATA_DIR, "draw.db");
+
 const db = new Database(DB_PATH);
+
+// ✅ ONE-TIME RESET (NUKES ALL SAVED DRAWINGS)
+// Leave this in for ONE deploy, then remove it and redeploy again.
+db.exec(`DROP TABLE IF EXISTS segments;`);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS segments (
@@ -26,20 +31,6 @@ db.exec(`
     t INTEGER
   );
 `);
-
-// Add columns if your table already existed (safe migration)
-function addColumnIfMissing(table, column, type) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
-  const has = cols.some(c => c.name === column);
-  if (!has) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
-  }
-}
-
-addColumnIfMissing("segments", "nx1", "REAL");
-addColumnIfMissing("segments", "ny1", "REAL");
-addColumnIfMissing("segments", "nx2", "REAL");
-addColumnIfMissing("segments", "ny2", "REAL");
 
 const insertSeg = db.prepare(`
   INSERT INTO segments (x1,y1,x2,y2,nx1,ny1,nx2,ny2,color,w,t)
@@ -56,7 +47,6 @@ io.on("connection", (socket) => {
   socket.emit("history", getAll.all());
 
   socket.on("segment", (seg) => {
-    // accept old clients (pixels only), new clients (pixels + normalized)
     insertSeg.run({
       x1: seg.x1 ?? null,
       y1: seg.y1 ?? null,
@@ -68,7 +58,7 @@ io.on("connection", (socket) => {
       ny2: seg.ny2 ?? null,
       color: seg.color,
       w: seg.w,
-      t: Date.now()
+      t: Date.now(),
     });
 
     socket.broadcast.emit("segment", seg);
@@ -77,6 +67,7 @@ io.on("connection", (socket) => {
 
 const PORT = process.env.PORT || 3000;
 const HOST = "0.0.0.0";
+
 server.listen(PORT, HOST, () => {
   console.log(`Server running on ${HOST}:${PORT}`);
 });
