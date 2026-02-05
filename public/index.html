@@ -1,49 +1,62 @@
 <!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Shared Draw</title>
-  <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-      overflow: hidden;
-      background: #fff;
-    }
-    canvas {
-      width: 100vw;
-      height: 100vh;
-      display: block;
-      cursor: crosshair;
-    }
-    .palette {
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      display: flex;
-      gap: 8px;
-      background: #fff;
-      padding: 8px;
-      border: 1px solid #ddd;
-      z-index: 10;
-    }
-    .swatch {
-      width: 20px;
-      height: 20px;
-      border: 1px solid #000;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Shared Drawing</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #fff;
+      }
 
-<div class="palette" id="palette"></div>
-<canvas id="c"></canvas>
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        cursor: crosshair;
+        /* these help keep things crisp in some browsers */
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
 
-<script src="/socket.io/socket.io.js"></script>
+      .palette {
+        position: fixed;
+        top: 18px;
+        left: 18px;
+        z-index: 10;
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        background: rgba(255,255,255,0.9);
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        backdrop-filter: blur(6px);
+      }
 
-<script>
+      .swatch {
+        width: 18px;
+        height: 18px;
+        border: 1px solid #111;
+        cursor: pointer;
+        border-radius: 2px;
+      }
 
+      .swatch.active {
+        outline: 2px solid #000;
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="palette" id="palette"></div>
+    <canvas id="c"></canvas>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
       const canvas = document.getElementById("c");
       const ctx = canvas.getContext("2d", { alpha: true });
 
@@ -178,6 +191,5 @@
       // Prevent page scrolling on touch
       canvas.style.touchAction = "none";
     </script>
-
-</body>
+  </body>
 </html>
