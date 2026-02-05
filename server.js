@@ -28,7 +28,7 @@ db.exec(`
   );
 `);
 
-
+db.exec(`DELETE FROM segments;`);
 
 const insertSeg = db.prepare(`
   INSERT INTO segments (x1,y1,x2,y2,color,w,t)
