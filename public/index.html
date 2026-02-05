@@ -128,21 +128,19 @@
   //   recv+send: "segment" (single segment object)
   const socket = io();
 
-  function renderSeg(seg) {
-    const w = seg.w ?? (seg.color === "#000000" ? 6 : 2);
-    drawPixelLine(seg.x1, seg.y1, seg.x2, seg.y2, seg.color, w);
-  }
+function renderSeg(seg) {
+  const w = seg.w ?? (seg.color === "#000000" ? 6 : 2);
 
-  socket.on("history", (segments) => {
-    segments.forEach(renderSeg);
-  });
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
 
-  socket.on("segment", renderSeg);
+  const x1 = (seg.nx1 != null) ? Math.round(seg.nx1 * vw) : seg.x1;
+  const y1 = (seg.ny1 != null) ? Math.round(seg.ny1 * vh) : seg.y1;
+  const x2 = (seg.nx2 != null) ? Math.round(seg.nx2 * vw) : seg.x2;
+  const y2 = (seg.ny2 != null) ? Math.round(seg.ny2 * vh) : seg.y2;
 
-  function emitSeg(x1, y1, x2, y2, color) {
-    const w = color === "#000000" ? 6 : 2;
-    socket.emit("segment", { x1, y1, x2, y2, color, w });
-  }
+  drawPixelLine(x1, y1, x2, y2, seg.color, w);
+}
 
   // ---------- Drawing input ----------
   let drawing = false;
