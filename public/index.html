@@ -21,7 +21,6 @@
       left: 10px;
       display: flex;
       gap: 8px;
-      background: #fff;
       z-index: 10;
     }
     .swatch {
@@ -129,7 +128,7 @@
   const socket = io();
 
   function renderSeg(seg) {
-    const w = seg.w ?? (seg.color === "#000000" ? 6 : 3);
+    const w = seg.w ?? (seg.color === "#000000" ? 6 : 2);
     drawPixelLine(seg.x1, seg.y1, seg.x2, seg.y2, seg.color, w);
   }
 
@@ -140,7 +139,7 @@
   socket.on("segment", renderSeg);
 
   function emitSeg(x1, y1, x2, y2, color) {
-    const w = color === "#000000" ? 6 : 3;
+    const w = color === "#000000" ? 6 : 2;
     socket.emit("segment", { x1, y1, x2, y2, color, w });
   }
 
@@ -153,7 +152,7 @@
     last = getPos(e);
 
     // Draw + send a dot immediately
-    const w = currentColor === "#000000" ? 6 : 3;
+    const w = currentColor === "#000000" ? 6 : 2;
     drawPixelLine(last.x, last.y, last.x, last.y, currentColor, w);
     emitSeg(last.x, last.y, last.x, last.y, currentColor);
   }
