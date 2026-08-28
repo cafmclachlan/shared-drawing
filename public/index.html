@@ -196,65 +196,14 @@
     last = null;
   }
 
-// ---------- Drawing input ----------
-let drawing = false;
-let last = null;
-let activePointerId = null;
-
-function startDraw(e) {
-  // Ignore any second finger / pointer
-  if (activePointerId !== null) return;
-
-  activePointerId = e.pointerId;
-  drawing = true;
-  last = getPos(e);
-
-  canvas.setPointerCapture(e.pointerId);
-
-  // Draw + send a dot immediately
-  const w = currentColor === "#000000" ? 6 : 2;
-  drawPixelLine(last.x, last.y, last.x, last.y, currentColor, w);
-  emitSeg(last.x, last.y, last.x, last.y, currentColor);
-}
-
-function moveDraw(e) {
-  // Only respond to the finger/pointer that started the stroke
-  if (!drawing || !last) return;
-  if (e.pointerId !== activePointerId) return;
-
-  const p = getPos(e);
-
-  // Ignore if no whole-pixel movement
-  if (p.x === last.x && p.y === last.y) return;
-
-  const w = currentColor === "#000000" ? 6 : 2;
-
-  // Draw locally
-  drawPixelLine(last.x, last.y, p.x, p.y, currentColor, w);
-
-  // Broadcast to server
-  emitSeg(last.x, last.y, p.x, p.y, currentColor);
-
-  last = p;
-}
-
-function endDraw(e) {
-  // Ignore pointer-up events from any other finger
-  if (e.pointerId !== activePointerId) return;
-
-  drawing = false;
-  last = null;
-  activePointerId = null;
-}
-
-// Pointer events for mouse + touch/pen
-canvas.addEventListener("pointerdown", startDraw);
-canvas.addEventListener("pointermove", moveDraw);
-window.addEventListener("pointerup", endDraw);
-window.addEventListener("pointercancel", endDraw);
-
-// Prevent page scrolling / pinch gestures on the canvas
-canvas.style.touchAction = "none";
+  // Pointer events for mouse + touch/pen
+  canvas.addEventListener("pointerdown", (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    startDraw(e);
+  });
+  canvas.addEventListener("pointermove", moveDraw);
+  window.addEventListener("pointerup", endDraw);
+  window.addEventListener("pointercancel", endDraw);
 
   // Prevent page scrolling on touch
   canvas.style.touchAction = "none";
