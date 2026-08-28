@@ -18,8 +18,8 @@
     }
     .palette {
       position: fixed;
-      bottom: 10px;
-      left: 10px;
+      bottom: 30px;
+      left: 30px;
       display: flex;
       gap: 8px;
       z-index: 10;
@@ -39,6 +39,12 @@
       left:0;
       justify-content: center;
     }}
+
+    @media (pointer: coarse) {
+  .palette {
+    bottom: 30px;
+  }
+}
   </style>
 </head>
 <body>
